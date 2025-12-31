@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand-Control - Damir</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'IBM Plex Mono', 'Courier New', monospace;
+            background-color: #ffffff;
+            color: #000000;
+            line-height: 1.7;
+            padding: 40px 20px 40px 80px;
+            max-width: 750px;
+            margin: 0 auto;
+            font-size: 16px;
+            min-height: 100vh;
+        }
+        
+        .back-link {
+            margin-bottom: 30px;
+        }
+        
+        .back-link a {
+            color: #000;
+            text-decoration: underline;
+            text-decoration-color: rgba(0, 0, 0, 0.3);
+            text-underline-offset: 2px;
+            transition: text-decoration-color 0.2s;
+        }
+        
+        .back-link a:hover {
+            text-decoration-color: #000;
+        }
+        
+        h1 {
+            font-size: 28px;
+            font-weight: 400;
+            margin-bottom: 12px;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 40px;
+        }
+        
+        h2 {
+            font-size: 22px;
+            font-weight: 400;
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+        
+        h3 {
+            font-size: 18px;
+            font-weight: 400;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            margin-bottom: 16px;
+        }
+        
+        ul {
+            list-style: none;
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+        
+        li {
+            margin-bottom: 12px;
+            position: relative;
+            padding-left: 20px;
+        }
+        
+        li:before {
+            content: "–";
+            position: absolute;
+            left: 0;
+        }
+        
+        code {
+            background-color: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 14px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+        
+        pre {
+            background-color: #f5f5f5;
+            padding: 16px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        .date {
+            color: #999;
+            font-size: 14px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="back-link">
+        <a href="index.html">← Back to home</a>
+    </div>
+    
+    <h1>HAND-CONTROL - CONTROL YOUR MOUSE AND KEYBOARD WIRELESSLY USING 1 HAND</h1>
+    <p class="subtitle">A technical deep dive into building a wireless hand-controlled mouse and keyboard system</p>
+    
+    <h2>Main Controls</h2>
+    <ul>
+        <li><strong>Pinch</strong> (index finger + thumb connecting) - control your mouse</li>
+        <li><strong>Open palm going up and down</strong> - scrolling vertically</li>
+        <li><strong>Thumb + middle finger connecting</strong> - clicking</li>
+        <li><strong>Index finger up</strong> (only 1) - zooming in</li>
+        <li><strong>Index and middle fingers up</strong> - zooming out</li>
+    </ul>
+    
+    <h2>Basic Concept</h2>
+    <p>
+        MediaPipe detects your hand, draws landmarks on it and identifies the gesture it is making and doing the corresponding action.
+    </p>
+    
+    <h2>What Was Used</h2>
+    <ul>
+        <li><strong>OpenCV library</strong> - opens camera, captures hands, draws landmarks</li>
+        <li><strong>MediaPipe library</strong> - Google's framework for hand tracking (it has <code>mp.solutions.hands</code> for hand detection model and <code>mp.solutions.drawing_utils</code> - utilities to draw 21 hand landmarks on the frame itself)</li>
+        <li><strong>NumPy library</strong> - calculate the Euclidean distance between fingers (<code>np.linalg.norm</code>), clips values and makes average <code>np.mean</code> to smooth cursor position on the frame</li>
+        <li><strong>PyAutoGUI library</strong> - programmatic control of mouse and keyboard:
+            <ul>
+                <li><code>pyautogui.moveTo()</code> - moves the cursor to the coordinates</li>
+                <li><code>pyautogui.click()</code> - clicking</li>
+                <li>Same with scrolls (imitates mouse wheel speed), <code>pyautogui.size()</code> - gets screen dimension to see the whole frame</li>
+            </ul>
+        </li>
+    </ul>
+    
+    <h2>Example: MediaPipe Hand Detection Setup</h2>
+    <pre><code>mp_hands = mp.solutions.hands
+mp_draw = mp.solutions.drawing_utils
+
+try:
+    hands = mp_hands.Hands(
+        max_num_hands=1,
+        min_detection_confidence=0.7,
+        min_tracking_confidence=0.5,
+        static_image_mode=False
+    )</code></pre>
+    
+    <ul>
+        <li><strong>max_num_hands</strong> - the number of hands that can be detected at once</li>
+        <li><strong>Detection confidence</strong> - the threshold of confidence that the model has to exceed in order to draw landmarks on it - detection (if less - no detection)</li>
+    </ul>
+    
+    <h3>Some Environment Variables</h3>
+    <pre><code>os.environ["MEDIAPIPE_DISABLE_GPU"] = "1"
+os.environ["GLOG_minloglevel"] = "3"  
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"</code></pre>
+    
+    <ul>
+        <li><strong>Disabling GPU</strong> - to prevent macOS crash because of mutex lock (Python issue)</li>
+        <li><strong>Minloglevel</strong> - MediaPipe makes too many outputs which causes lagging, level 3 - only fatal errors</li>
+        <li><strong>Num threads</strong> - like the sequence of operations CPU can do, multi-threading is needed for faster calculations. So OpenBLAS and MKL are needed for NumPy to make faster calculations, but we limit to 1 because macOS has strict rules about amount of threads running so MediaPipe and OpenBLAS+MKL would conflict again while using same CPU</li>
+    </ul>
+    
+    <h2>Parameters for Moving Mouse</h2>
+    <pre><code>PINCH_THRESHOLD_NORM = 0.05
+PINCH_ACTIVE = False
+PINCH_DEBOUNCE_FRAMES = 3
+pinch_debounce_counter = 0</code></pre>
+    
+    <ul>
+        <li><strong>Pinch threshold</strong> - maximum distance between index finger and thumb to be considered a pinch</li>
+        <li><strong>Debouncing</strong> - made 3 frames to keep pinch active even when released for some milliseconds to make smooth control and prevent flickering mouse. Basically making it stable to be positioned</li>
+    </ul>
+    
+    <h3>Example</h3>
+    <pre><code>def check_pinch_quality(lm, thumb_tip, index_tip):
+    dist = distance(thumb_tip, index_tip)
+    height_diff = abs(thumb_tip[1] - index_tip[1])
+    is_pinch = dist < PINCH_THRESHOLD_NORM and height_diff < 0.12
+    return is_pinch, dist</code></pre>
+    
+    <p>
+        It checks for distance between thumb and index finger AND the height difference. Example - thumb up and index finger pointing forward might think its a pinch, height difference checking fixes this.
+    </p>
+    
+    <h2>Clicking</h2>
+    <pre><code>last_click_time = 0
+click_cooldown = 0.3</code></pre>
+    
+    <p>Making cooldown 300ms to prevent multi clicking.</p>
+    
+    <h2>Scrolling</h2>
+    <pre><code>scroll_position_history = deque(maxlen=10)
+scroll_sensitivity = 0.4
+min_scroll_threshold = 0.002</code></pre>
+    
+    <ul>
+        <li><strong>Scroll position history</strong> - it stores last 10 frames of hand position with timestamps to calculate velocity of scrolling (aka the speed of changing position 1 to position 2)</li>
+        <li><strong>Sensitivity</strong> - less sensitivity means slower but stable scrolling</li>
+        <li><strong>Threshold</strong> - minimum movement needed for the hand to scroll, it prevents scrolling when switching to different gestures</li>
+    </ul>
+    
+    <h3>Example</h3>
+    <pre><code>def calculate_scroll_velocity(position_history):
+    if len(position_history) < 2:
+        return 0.0
+    
+    recent_count = min(5, len(position_history))
+    positions = list(position_history)[-recent_count:]
+    
+    oldest_x, oldest_y, oldest_time = positions[0]
+    newest_x, newest_y, newest_time = positions[-1]
+    
+    if newest_time - oldest_time < 0.001:
+        return 0.0
+    
+    velocity = (newest_y - oldest_y) / (newest_time - oldest_time)
+    return velocity</code></pre>
+    
+    <p>
+        It takes last 5 positions from history, calculates the vertical change, and returns velocity: Y change / (timestamp1 - timestamp2).
+    </p>
+    
+    <h2>Zooming</h2>
+    <pre><code>last_zoom_time = 0
+zoom_cooldown = 2.0  # 2 seconds between zoom actions
+ZOOM_MODIFIER = 'cmd' if platform.system() == 'Darwin' else 'ctrl'</code></pre>
+    
+    <ul>
+        <li><strong>Zoom cooldown</strong> - zoom out/in action with cooldown of 2 seconds to prevent fast zooming</li>
+        <li><strong>Modifier</strong> - uses command for macOS (Darwin) else ctrl for Linux or Windows</li>
+    </ul>
+    
+    <pre><code>if can_zoom and zoom_gesture:
+    if zoom_gesture == "zoom_in" and now - last_zoom_time >= zoom_cooldown:
+        subprocess.run(['osascript', '-e',
+                       'tell application "System Events" to keystroke "+" using command down'])
+        last_zoom_time = now
+    elif zoom_gesture == "zoom_out" and now - last_zoom_time >= zoom_cooldown:
+        subprocess.run(['osascript', '-e',
+                       'tell application "System Events" to keystroke "-" using command down'])
+        last_zoom_time = now</code></pre>
+    
+    <p>
+        Logic for zooming - if detected gesture - check the cooldown time - tell the macOS to imitate cmd + or cmd -.
+    </p>
+    
+    <h2>Additional Normalization Setup for Fingers</h2>
+    <pre><code>if results.multi_hand_landmarks:
+    for hand_landmarks in results.multi_hand_landmarks:
+        lm = hand_landmarks.landmark
+        
+        # Extract key points in normalized coordinates (0-1)
+        thumb_tip_norm = (lm[4].x, lm[4].y)
+        index_tip_norm = (lm[8].x, lm[8].y)
+        middle_tip_norm = (lm[12].x, lm[12].y)
+        
+        # Convert to pixel coordinates for display
+        thumb_tip = (lm[4].x*cam_w, lm[4].y*cam_h)
+        index_tip = (lm[8].x*cam_w, lm[8].y*cam_h)
+        middle_tip = (lm[12].x*cam_w, lm[12].y*cam_h)</code></pre>
+    
+    <p>
+        Normalized is used for the calculating Euclidean distance, pixel for the drawing on the frame - aka moving cursor.
+    </p>
+    
+    <div class="date">Published: December 2025</div>
+</body>
+</html>
+

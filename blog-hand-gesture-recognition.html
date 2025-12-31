@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Gesture Recognition - Damir</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'IBM Plex Mono', 'Courier New', monospace;
+            background-color: #ffffff;
+            color: #000000;
+            line-height: 1.7;
+            padding: 40px 20px 40px 80px;
+            max-width: 750px;
+            margin: 0 auto;
+            font-size: 16px;
+            min-height: 100vh;
+        }
+        
+        .back-link {
+            margin-bottom: 30px;
+        }
+        
+        .back-link a {
+            color: #000;
+            text-decoration: underline;
+            text-decoration-color: rgba(0, 0, 0, 0.3);
+            text-underline-offset: 2px;
+            transition: text-decoration-color 0.2s;
+        }
+        
+        .back-link a:hover {
+            text-decoration-color: #000;
+        }
+        
+        h1 {
+            font-size: 28px;
+            font-weight: 400;
+            margin-bottom: 12px;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 40px;
+        }
+        
+        h2 {
+            font-size: 22px;
+            font-weight: 400;
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+        
+        h3 {
+            font-size: 18px;
+            font-weight: 400;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            margin-bottom: 16px;
+        }
+        
+        ul {
+            list-style: none;
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+        
+        li {
+            margin-bottom: 12px;
+            position: relative;
+            padding-left: 20px;
+        }
+        
+        li:before {
+            content: "–";
+            position: absolute;
+            left: 0;
+        }
+        
+        code {
+            background-color: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 14px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+        
+        pre {
+            background-color: #f5f5f5;
+            padding: 16px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        .date {
+            color: #999;
+            font-size: 14px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="back-link">
+        <a href="index.html">← Back to home</a>
+    </div>
+    
+    <h1>HAND GESTURE RECOGNITION - TRAIN A MACHINE LEARNING MODEL TO RECOGNIZE CUSTOM HAND GESTURES</h1>
+    <p class="subtitle">Building a custom gesture recognition system using MediaPipe, SVM, and Python</p>
+    
+    <p>
+        Contains 3 main files:
+    </p>
+    <ul>
+        <li><code>collect_gestures.py</code> - making custom dataset (gesture - meaning)</li>
+        <li><code>train_model.py</code> - trains model based on the given dataset</li>
+        <li><code>translator.py</code> - uses trained model to detect gestures on camera and translate them</li>
+    </ul>
+    
+    <h2>Concept</h2>
+    <p>
+        MediaPipe detects your hand (or 2 hands), creating a 126-value feature vector total (2 hands × 21 landmarks × 3 coords). These feature vectors are collected as training data, then used to train a machine learning model (SVM) that learns to distinguish between different gestures. Once trained, the model can recognize which gesture you are making in real-time.
+    </p>
+    
+    <h2>Libraries Used</h2>
+    <ul>
+        <li><strong>MediaPipe</strong> - used for 21 landmark drawings, each is used for (x y z) coordinates so it creates a 63-value feature vector per hand.</li>
+        <li><strong>OpenCV</strong> - opens camera, handles keyboard input (space to save gesture)</li>
+        <li><strong>NumPy</strong> - needed to convert landmarks to arrays and create 1D feature vectors</li>
+        <li><strong>Scikit-learn</strong> - using ready SVM method to train on given arrays</li>
+        <li><strong>Joblib</strong> - saving trained model on disk and then using it in translating</li>
+    </ul>
+    
+    <h2>COLLECT_GESTURES.PY - Making Own Custom Dataset</h2>
+    
+    <h3>Set Up MediaPipe</h3>
+    <pre><code>mp_hands = mp.solutions.hands
+hands = mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=2,  
+    min_detection_confidence=0.7,
+    min_tracking_confidence=0.6
+)</code></pre>
+    
+    <p>
+        Static image mode - for using continuous frames and not single ones.
+    </p>
+    
+    <pre><code>DATA_DIR = "gesture_data"
+os.makedirs(DATA_DIR, exist_ok=True)</code></pre>
+    
+    <p>Sets up or uses the existing folder of gesture_data.</p>
+    
+    <h3>Extracting Landmarks</h3>
+    <pre><code>all_landmarks = []
+
+if res.multi_hand_landmarks:
+    for hand_landmarks in res.multi_hand_landmarks:
+        mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+        lm = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark]).flatten()
+        all_landmarks.extend(lm)</code></pre>
+    
+    <p>
+        Loops through all existing landmarks, extract all their coordinates (xyz), NumPy makes a 2D array of them and then flattens to 1D to make 1 whole array. In total we get 63 values per hand.
+    </p>
+    
+    <pre><code>if len(all_landmarks) < 126:
+    all_landmarks.extend([0.0] * (126 - len(all_landmarks)))</code></pre>
+    
+    <p>
+        We expect 2 hands so 63×2 = 126, and the missing values will be replaced with zeros so model can ignore them during classification.
+    </p>
+    
+    <h3>Saving Samples</h3>
+    <pre><code>key = cv2.waitKey(1) & 0xFF
+if key == ord(' '):
+    samples.append(all_landmarks)
+    print(f"✅ Saved sample #{len(samples)}")</code></pre>
+    
+    <p>When space is pressed it saves a sample - list of landmarks.</p>
+    
+    <pre><code>save_path = os.path.join(DATA_DIR, f"{label}.json")
+with open(save_path, "w") as f:
+    json.dump(samples, f)</code></pre>
+    
+    <p>
+        This creates a JSON of values we add to the list of samples, so each gesture has own JSON of values.
+    </p>
+    
+    <h2>TRAIN_MODEL.PY - Training SVM on Saved Data</h2>
+    
+    <pre><code>X, y = [], []
+
+for file in os.listdir(DATA_DIR):
+    if file.endswith(".json"):
+        label = file.replace(".json", "")
+        with open(os.path.join(DATA_DIR, file), "r") as f:
+            data = json.load(f)
+            for sample in data:
+                X.append(sample)
+                y.append(label)</code></pre>
+    
+    <p>
+        Basic setup for X - 126 values, y - gesture name. So we loop through all files, we extract label name by deleting .json part and keep the JSON that contains multiple samples. Then we append each sample to X and each label to y.
+    </p>
+    
+    <pre><code>X = np.array(X)
+y = np.array(y)
+# --- Train simple linear SVM ---
+clf = svm.SVC(kernel="linear", probability=True)
+clf.fit(X, y)
+joblib.dump(clf, "asl_model.joblib")</code></pre>
+    
+    <p>
+        Converting the values to NumPy - format that the SVM model trains on. Then we train the SVM - a machine learning algorithm and use <code>probability=True</code> to get the confidence of the model when identifying gestures. Then <code>joblib.dump</code> - saving the model to the disk (a format that the model can be saved and used).
+    </p>
+    
+    <h2>TRANSLATOR.PY - Real-Time Gesture Recognition</h2>
+    
+    <p>Basic MediaPipe setup and loading the joblib model.</p>
+    
+    <pre><code>all_landmarks = []
+
+if res.multi_hand_landmarks:
+    for hand_landmarks in res.multi_hand_landmarks:
+        mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+        lm = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark]).flatten()
+        all_landmarks.extend(lm)
+
+if len(all_landmarks) < 126:
+    all_landmarks.extend([0.0] * (126 - len(all_landmarks)))</code></pre>
+    
+    <p>
+        Here we loop and extract every landmark feature (coordinates) and make a list of 126 values.
+    </p>
+    
+    <pre><code>landmarks = extract_landmarks(results)
+
+try:
+    pred = model.predict([landmarks])[0]
+    prob = model.predict_proba([landmarks]).max()
+    
+    color = (0, 255, 0) if prob > 0.7 else (0, 255, 255)
+    text = f"Gesture: {pred} ({prob*100:.1f}%)"
+except Exception as e:
+    text = "Prediction error"</code></pre>
+    
+    <p>
+        We create an array, then the model predicts the gesture based on the NumPy array and the probability (confidence).
+    </p>
+    
+    <div class="date">Published: December 2025</div>
+</body>
+</html>
+
